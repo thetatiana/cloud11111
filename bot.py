@@ -77,14 +77,18 @@ def choose_service(message):
         bot.send_message(message.chat.id, 'Выберите нужный сервер или создайте новый:', reply_markup=keyboard)
         bot.register_next_step_handler(message, ecs_service, names_ecs)
 
-        if message.text == 'EVS':
-            info = listing_volumes_of_project_api(current_project, The_main.TOKEN)
-            bot.send_message(message.chat.id, '{info}'.format(info=info))
-            keyboard = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=False, one_time_keyboard=True)
-            for i in range(len(info)):
-                name = info['volumes'][i]['name']
-                keyboard.add(types.KeyboardButton(text='{name}'.format(name=name)))
-            bot.send_message(message.chat.id, 'Выберите нужное действие:', reply_markup=keyboard)
+    if message.text == 'EVS':
+        evsNames = []
+        info = listing_volumes_of_project_api(current_project, token()).json()
+        keyboard = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=False, one_time_keyboard=True)
+        for i in range(len(info['volumes'])):
+            name = info['volumes'][i]['name']
+            evsNames.append(name)
+            keyboard.add(types.KeyboardButton(text='{name}'.format(name=name)))
+        keyboard.add(types.KeyboardButton(text='Создать новый диск'))
+        bot.send_message(message.chat.id, '{a}'.format(a = len(info)), reply_markup=keyboard)
+        bot.send_message(message.chat.id, 'Выберите нужный диск или создайте новый:', reply_markup=keyboard)
+        bot.register_next_step_handler(message, evsService, evsNames)
 
 def as_service(message, names_as):
     if message.text in names_as:
@@ -103,6 +107,79 @@ def ecs_service(message, names_ecs):
         keyboard.add(types.KeyboardButton(text='Изменить данный сервер'))
         keyboard.add(types.KeyboardButton(text='Удалить данный сервер'))
         bot.send_message(message.chat.id, 'Выберите действие:', reply_markup=keyboard)
+        
+def evsService(message, evsNames):
+    if message.text in evsNames:
+        name = message.text
+        keyboard = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=False, one_time_keyboard=True)
+        keyboard.add(types.KeyboardButton(text='Изменить данный диск'))
+        keyboard.add(types.KeyboardButton(text='Удалить данный диск'))
+        bot.send_message(message.chat.id, 'Выберите действие:', reply_markup=keyboard)
+        bot.register_next_step_handler(message, evsServiceUD, name)
+    elif(message.text == "Создать новый диск"):
+        createDiskParaameters = []
+        bot.send_message(message.chat.id, "Введите название нового диска:")
+        bot.register_next_step_handler(message, newDiskSize, createDiskParaameters)
+
+def newDiskSize(message, createDiskParaameters):
+    createDiskParaameters.append(message.text)
+    bot.send_message(message.chat.id, "Введите количество выделенной памяти:")
+    bot.register_next_step_handler(message, newDiskAZ, createDiskParaameters)
+
+def newDiskAZ(message, createDiskParaameters):
+    createDiskParaameters.append(message.text)
+    bot.send_message(message.chat.id, "Введите название зоны доступа:")
+    bot.register_next_step_handler(message, diskQuantity, createDiskParaameters)
+
+def diskQuantity(message, createDiskParaameters):
+    createDiskParaameters.append(message.text)
+    bot.send_message(message.chat.id, "Введите количество создаваемых дисков:")
+    bot.register_next_step_handler(message, addDescription, createDiskParaameters)
+
+def addDescription(message, createDiskParaameters):
+    createDiskParaameters.append(message.text)
+    bot.send_message(message.chat.id, "Вы можете добавить описание:")
+    bot.register_next_step_handler(message, newDiskVolumeType, createDiskParaameters)  
+
+def newDiskVolumeType(message, createDiskParaameters):
+    createDiskParaameters.append(message.text)
+    bot.send_message(message.chat.id, "Вы можете добавить тип диска:")
+    bot.register_next_step_handler(message, createDisk, createDiskParaameters) 
+
+def createDisk(message, createDiskParaameters):
+    createDiskParaameters.append(message.text)
+    newDisk = createEVSDisk(current_project, token(), createDiskParaameters[0], createDiskParaameters[1], createDiskParaameters[2], createDiskParaameters[3], createDiskParaameters[4], createDiskParaameters[5])
+    if (newDisk.status_code  > 199 and newDisk.status_code < 300):
+        bot.send_message(message.chat.id, "Авторизация прошла успешно!")
+    else:
+        bot.send_message(message.chat.id, "Что-то пошло не так, повторите авторизацию")
+def evsServiceUD(message, name):
+    if message.text == 'Удалить данный диск':
+        delete = deleteEVSDisk(current_project, name, token()).status_code
+        bot.send_message(message.chat.id, '{delete}'.format(delete=delete))
+        if delete > 199 and delete < 300:
+            bot.send_message(message.chat.id, 'Диск успешно удален!')
+        else:
+            bot.send_message(message.chat.id, 'Что-то пошло не так, попробуйте еще раз')
+    elif message.text == 'Изменить данный диск':
+        updateDiskParameters = []
+        bot.send_message(message.chat.id, "Введите новое название данного диска:")
+        bot.register_next_step_handler(message, updateDescription, updateDiskParameters, name)
+
+def updateDescription(message, updateDiskParameters, name):
+    updateDiskParameters.append(message.text)
+    bot.send_message(message.chat.id, "Введите новое описание данного диска:")
+    bot.register_next_step_handler(message, updateDisk, updateDiskParameters, name)
+
+def updateDisk(message, updateDiskParameters, name):
+    #bot.send_message(message.chat.id, "{a}".format(a = updateDiskParameters[0]))
+    updateDiskParameters.append(message.text)
+    #bot.send_message(message.chat.id, "{a}".format(a = updateDiskParameters[0]))
+    updatedDisk = updateInfo(current_project, name, token(), updateDiskParameters[0], updateDiskParameters[1])
+    if (updatedDisk.status_code > 199 and updatedDisk.status_code < 300):
+        bot.send_message(message.chat.id, "Обновление прошло успешно!")
+    else:
+        bot.send_message(message.chat.id, "Что-то пошло не так, повторите авторизацию")
 
 
 bot.polling(none_stop=True)
