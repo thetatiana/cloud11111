@@ -60,3 +60,6 @@ if auth_end.status_code == 201:
     TOKEN = auth_end.headers['X-Subject-Token']
 
 current_project = projects_id(TOKEN)[0]  # запрос у пользователя проекта из списка projects_id
+
+def token():
+    return TOKEN
