@@ -171,9 +171,9 @@ def cluster_certificate(current_project, current_cluster, duration, TOKEN):
 
 
 def ecс_id_by_name(current_project, name, TOKEN):
-    as_id = ''
-    for i in range(listing_clusters_of_project_api(current_project, TOKEN)["total_number"]):
-        if listing_clusters_of_project_api(current_project, TOKEN)["scaling_groups"][i]["scaling_group_name"] == name:
-            as_id = listing_clusters_of_project_api(current_project, TOKEN)["scaling_groups"][i]["scaling_group_id"]
+    ecc_id = ''
+    for i in range(len((listing_clusters_of_project_api(current_project, TOKEN)["items"]))):
+        if listing_clusters_of_project_api(current_project, TOKEN)["items"][i]["metadata"]["name"] == name:
+            ecc_id = listing_clusters_of_project_api(current_project, TOKEN)["items"][i]["uid"]
             break
-    return as_id
+    return ecc_id
